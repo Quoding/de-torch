@@ -4,6 +4,9 @@
 
 This fork litterally just enables gradient back propagation during DE as to enable [OptimNeuralTS](https://github.com/Quoding/optimneuralbandits) to work.
 
+To install:
+`pip install git+https://github.com/Quoding/de-torch.git#egg=detorch`
+
 # Requirements
 
 ```
