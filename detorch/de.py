@@ -1,22 +1,23 @@
 import os
-import sys
 import random
+import sys
 from abc import ABC, abstractmethod
 from enum import IntEnum
 
+import numpy as np
 import torch
 from torch import nn
-import numpy as np
+
 from .dataclass_config import Config, check_required
 
-
 try:
-    disable_mpi = os.environ.get('DETORCH_DISABLE_MPI')
-    if disable_mpi and disable_mpi != '0':
+    disable_mpi = os.environ.get("DETORCH_DISABLE_MPI")
+    if disable_mpi and disable_mpi != "0":
         raise ImportError
     from mpi4py import MPI
 except ImportError:
     from .MPI import MPI
+
     MPI = MPI()
 
 from .utils import *
@@ -43,6 +44,7 @@ class Strategy(IntEnum):
 
 class Policy(nn.Module, ABC):
     """Abstract subclass of nn.Module."""
+
     def __init__(self):
         super().__init__()
 
@@ -53,11 +55,12 @@ class Policy(nn.Module, ABC):
         pass
 
 
-class DE():
+class DE:
     """
     :ivar int gen: Current generation
     :ivar List[Policy] population
     """
+
     @hook
     def __init__(self, config: Config):
         check_required(config)
@@ -113,14 +116,19 @@ class DE():
     def sample_parameters(self, size):
         idxs = self.rng.integers(0, len(self.population), size)
         samples = self.population[idxs]
-        params = [torch.nn.utils.parameters_to_vector(sample.parameters()) for sample in samples]
+        params = [
+            torch.nn.utils.parameters_to_vector(sample.parameters())
+            for sample in samples
+        ]
         return params, idxs
 
     @hook
     def mutate(self, policy):
         """Mutate the given policy."""
         policy_params = torch.nn.utils.parameters_to_vector(policy.parameters())
-        best_params = torch.nn.utils.parameters_to_vector(self.population[self.current_best].parameters())
+        best_params = torch.nn.utils.parameters_to_vector(
+            self.population[self.current_best].parameters()
+        )
         if self.config.de.strategy % 8 == Strategy.rand1bin:
             params, _ = self.sample_parameters(3)
             diff = params[1] - params[2]
@@ -166,7 +174,10 @@ class DE():
             cross = torch.rand(policy_params.shape) <= self.crossover_probability
             policy_params[cross] = mutation[cross]
         else:
-            policy_params = self.crossover_probability * policy_params + (1.0 - self.crossover_probability) * mutation
+            policy_params = (
+                self.crossover_probability * policy_params
+                + (1.0 - self.crossover_probability) * mutation
+            )
 
         torch.nn.utils.vector_to_parameters(policy_params, policy.parameters())
 
@@ -178,7 +189,9 @@ class DE():
         batch = np.array_split(population, comm.Get_size())[comm.Get_rank()]
         for policy in batch:
             rewards.append(policy.evaluate())
-        comm.Allgatherv([np.array(rewards, dtype=np.float32), MPI.FLOAT], [reward_array, MPI.FLOAT])
+        comm.Allgatherv(
+            [np.array(rewards, dtype=np.float32), MPI.FLOAT], [reward_array, MPI.FLOAT]
+        )
         return reward_array
 
     @hook
@@ -204,7 +217,9 @@ class DE():
             self.rewards = self.eval_population(self.population)
             self.current_best = np.argmax(self.rewards)
         if isinstance(self.config.de.differential_weight, tuple):
-            self.differential_weight = self.rng.uniform(*self.config.de.differential_weight)
+            self.differential_weight = self.rng.uniform(
+                *self.config.de.differential_weight
+            )
         population = self.generate_candidates()
         rewards = self.eval_population(population)
         self.selection(population, rewards)
@@ -214,14 +229,12 @@ class DE():
         self._stop = True
 
     def train(self):
-        torch.set_grad_enabled(False)
         rank = MPI.COMM_WORLD.Get_rank()
         if not rank == 0:
-            f = open(os.devnull, 'w')
+            f = open(os.devnull, "w")
             sys.stdout = f
 
         while self.gen < self.config.de.n_step and not self._stop:
             self.step()
 
         sys.stdout = sys.__stdout__
-        torch.set_grad_enabled(True)
