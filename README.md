@@ -32,14 +32,6 @@ A Dockerfile is provided for convenience.
 pip install detorch --user
 ```
 
-## Source
-
-```bash
-git clone --recursive https://github.com/goktug97/de-torch
-cd de-torch
-python3 setup.py install --user
-```
-
 # Usage
 
 See https://github.com/goktug97/de-torch/blob/master/examples
